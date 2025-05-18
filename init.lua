@@ -1,0 +1,7 @@
+require("conf.lazy")
+require("conf.misc")
+require("conf.undotree")
+require("conf.mason")
+require("conf.completion")
+require("conf.comment")
+require("conf.wilder")
