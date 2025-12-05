@@ -3,10 +3,13 @@ vim.opt.shiftwidth = 4
 vim.opt.expandtab = false
 vim.opt.number = true
 vim.opt.relativenumber = true
+vim.opt.signcolumn = "yes"
 
 vim.api.nvim_set_keymap('n', '<leader>pc', ':set clipboard=unnamedplus<CR>', { noremap = true, silent = true })
 vim.api.nvim_set_keymap('n', '<leader>uc', ':set clipboard=unnamed<CR>', { noremap = true, silent = true })
 vim.api.nvim_set_keymap('n', '<leader>n', ':Cargo build<CR>', { noremap = true, silent = false })
+vim.api.nvim_set_keymap('n', '<leader>e', ':close<CR>', { noremap = true, silent = false })
+vim.api.nvim_set_keymap('n', '<leader>m', 'o// NOTE FOR SELF: make it an i64 instead of an i53 (check tg docs for more info)<Esc>', { noremap = true, silent = false })
 function cycle_letter()
   local row, col = unpack(vim.api.nvim_win_get_cursor(0))
   local current_line = vim.fn.getline(row)

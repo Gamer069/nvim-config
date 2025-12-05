@@ -1,0 +1,300 @@
+----- FILE: ./lua/conf/misc.lua -----
+vim.opt.tabstop = 4
+vim.opt.shiftwidth = 4
+vim.opt.expandtab = false
+vim.opt.number = true
+vim.opt.relativenumber = true
+
+vim.api.nvim_set_keymap('n', '<leader>pc', ':set clipboard=unnamedplus<CR>', { noremap = true, silent = true })
+vim.api.nvim_set_keymap('n', '<leader>uc', ':set clipboard=unnamed<CR>', { noremap = true, silent = true })
+vim.api.nvim_set_keymap('n', '<leader>n', ':Cargo build<CR>', { noremap = true, silent = false })
+function cycle_letter()
+  local row, col = unpack(vim.api.nvim_win_get_cursor(0))
+  local current_line = vim.fn.getline(row)
+  col = col + 1
+  local current_char = current_line:sub(col, col)
+
+  if current_char:match("[%a]") then
+    local next_char
+    if current_char:match("[%l]") then
+      next_char = string.char(((string.byte(current_char) - string.byte('a') + 1) % 26) + string.byte('a'))
+    elseif current_char:match("[%u]") then
+      next_char = string.char(((string.byte(current_char) - string.byte('A') + 1) % 26) + string.byte('A'))
+    end
+
+    local new_line = current_line:sub(1, col - 1) .. next_char .. current_line:sub(col + 1)
+    vim.fn.setline(row, new_line)
+  end
+end
+
+-- Key mapping to cycle letters (e.g., using `Ctrl-L`)
+vim.api.nvim_set_keymap('n', '<C-l>', ':lua cycle_letter()<CR>', { noremap = true, silent = true })
+vim.api.nvim_set_keymap('n', '<A-CR>', ':Lspsaga code_action<CR>', { noremap = true })
+vim.cmd("colorscheme catppuccin")
+vim.opt.guicursor = "i:block"
+vim.opt.undodir = vim.fn.expand("~/.config/nvim/undo/")
+vim.opt.undofile = true
+
+
+
+----- FILE: ./lua/conf/undotree.lua -----
+vim.keymap.set("n", "<leader>h", vim.cmd.UndotreeToggle, { noremap = true, silent = true })
+
+
+
+----- FILE: ./lua/conf/lazy.lua -----
+local lazypath = vim.fn.stdpath("data") .. "/lazy/lazy.nvim"
+
+if not (vim.uv or vim.loop).fs_stat(lazypath) then
+	local lazyrepo = "https://github.com/folke/lazy.nvim.git"
+	local out = vim.fn.system({"git", "clone", "--filter=blob:none", "--branch=stable", lazyrepo, lazypath })
+	if vim.v.shell_error ~= 0 then
+		vim.api.nvim_echo({
+			{ "Failed to clone lazy.nvim: \n", "ErrorMsg" },
+			{ out, "WarningMsg" },
+			{ "\nPress any key to continue..." },
+		}, true, {})
+		vim.fn.getchar()
+		os.exit(-1)
+	end
+end
+vim.opt.rtp:prepend(lazypath)
+
+vim.g.mapleader = " "
+vim.g.maplocalleader = "\\"
+-- do i need to set maplocalleader ..? idk
+
+require("lazy").setup({
+	spec = {
+		{ import = "plugins" },
+	},
+	install = { colorscheme = { "habamax" } },
+	checker = { enabled = true },
+})
+
+
+
+----- FILE: ./lua/conf/comment.lua -----
+require("Comment").setup({
+	toggler = {
+		line = '<leader>c',
+		block = '<leader>gc',
+	}
+})
+
+
+
+----- FILE: ./lua/conf/completion.lua -----
+-- Setup nvim-cmp
+local cmp = require('cmp')
+
+cmp.setup({
+    snippet = {
+        expand = function(args)
+            require('luasnip').lsp_expand(args.body) -- For luasnip users
+        end,
+    },
+    mapping = {
+        ['<C-n>'] = cmp.mapping.select_next_item({ behavior = cmp.SelectBehavior.Select }),
+        ['<C-p>'] = cmp.mapping.select_prev_item({ behavior = cmp.SelectBehavior.Select }),
+        ['<C-Space>'] = cmp.mapping.complete(),
+        ['<C-e>'] = cmp.mapping.close(),
+        ['<CR>'] = cmp.mapping.confirm({ select = true }),
+        ['<Tab>'] = cmp.mapping.select_next_item({ behavior = cmp.SelectBehavior.Select }),
+        ['<S-Tab>'] = cmp.mapping.select_prev_item({ behavior = cmp.SelectBehavior.Select }),
+    },
+    sources = {
+        { name = 'nvim_lsp' },
+        { name = 'buffer' },
+        { name = 'path' },
+        { name = 'luasnip' },
+        { name = 'nvim_lua' },
+        { name = 'nvim_lsp_signature_help' },
+    },
+    formatting = {
+        format = function(entry, vim_item)
+            vim_item.kind = string.format('%s %s', vim_item.kind, entry.source.name)
+            return vim_item
+        end,
+    },
+})
+
+print()
+
+
+
+----- FILE: ./lua/conf/wilder.lua -----
+require("wilder").setup({modes = {':', '/', '?'}})
+
+
+
+----- FILE: ./lua/conf/mason.lua -----
+-- Mason setup
+require("mason").setup()
+
+-- Mason-LSPConfig setup (new shit)
+require("mason-lspconfig").setup({
+    ensure_installed = { "clangd" }, -- make sure clangd is installed
+    automatic_installation = true,
+    automatic_enable = true,
+})
+
+-- Keymaps & attach logic
+local on_attach = function(_, bufnr)
+    local opts = { noremap = true, silent = true }
+    local keymap = vim.api.nvim_buf_set_keymap
+
+    keymap(bufnr, 'n', 'gd', '<cmd>lua vim.lsp.buf.definition()<CR>', opts)
+    keymap(bufnr, 'n', 'K', '<cmd>lua vim.lsp.buf.hover()<CR>', opts)
+    keymap(bufnr, 'n', '<C-k>', '<cmd>lua vim.lsp.buf.signature_help()<CR>', opts)
+end
+
+-- Default setup options
+local default_opts = {
+    on_attach = on_attach,
+    flags = {
+        debounce_text_changes = 150,
+    },
+}
+
+-- Final LSP setup per server
+local lspconfig = require("lspconfig")
+for _, server in ipairs(require("mason-lspconfig").get_installed_servers()) do
+    lspconfig[server].setup(vim.tbl_deep_extend("force", {}, default_opts))
+end
+
+
+
+----- FILE: ./lua/plugins/init.lua -----
+return {
+	{
+		"nvim-treesitter/nvim-treesitter",
+		run = ":TSUpdate"
+	},
+	{
+		"nvim-treesitter/playground",
+	},
+	{
+		"mbbill/undotree"
+	},
+	{
+		"neovim/nvim-lspconfig"
+	},
+	{
+		"williamboman/mason.nvim"
+	},
+	{
+		"williamboman/mason-lspconfig.nvim"
+	},
+	{
+		"hrsh7th/nvim-cmp"
+	},
+	{
+		"hrsh7th/cmp-buffer"
+	},
+	{
+		"hrsh7th/cmp-path"
+	},
+	{
+		"saadparwaiz1/cmp_luasnip"
+	},
+	{
+		"hrsh7th/cmp-nvim-lsp"
+	},
+	{
+		"hrsh7th/cmp-nvim-lua"
+	},
+	{
+		"L3MON4D3/LuaSnip"
+	},
+	{
+		"rafamadriz/friendly-snippets"
+	},
+	{
+		"numToStr/Comment.nvim"
+	},
+	{ "catppuccin/nvim", name = "catppuccin", priority = 1000 },
+	{ "gelguy/wilder.nvim" },
+	-- {
+		-- "cordx56/rustowl",
+		-- dependencies = { "neovim/nvim-lspconfig" },
+		-- config = function()
+			-- local lspconfig = require("lspconfig")
+			-- lspconfig.rustowl.setup({})
+		-- end,
+	-- },
+	{
+		"ThePrimeagen/vim-be-good"
+	},
+	{
+		"nvim-telescope/telescope.nvim",
+		config = function()
+			local telescope = require("telescope")
+			telescope.setup({})
+			local builtin = require("telescope.builtin")
+			vim.keymap.set('n', '<leader>pf', builtin.find_files, {})
+			vim.keymap.set('n', '<C-p>', builtin.git_files, {})
+			vim.keymap.set('n', '<leader>pws', function()
+				local word = vim.fn.expand("<cword>")
+				builtin.grep_string({ search = word })
+			end)
+			vim.keymap.set('n', '<leader>pWs', function()
+				local word = vim.fn.expand("<cWORD>")
+				builtin.grep_string({ search = word })
+			end)
+			vim.keymap.set('n', '<leader>ps', function()
+				builtin.grep_string({ search = vim.fn.input("") })
+			end)
+		end,
+	},
+	{
+		"glepnir/lspsaga.nvim",
+		branch = "main",
+		config = function()
+			require("lspsaga").setup({})
+			vim.keymap.set("n", "<S-F6>", "<cmd>Lspsaga rename<CR>", { silent = true })
+		end,
+	},
+}
+
+
+
+----- FILE: ./lazy-lock.json -----
+{
+  "Comment.nvim": { "branch": "master", "commit": "e30b7f2008e52442154b66f7c519bfd2f1e32acb" },
+  "LuaSnip": { "branch": "master", "commit": "c1851d5c519611dfc451b6582961b2602e0af89b" },
+  "catppuccin": { "branch": "main", "commit": "1bf070129c0b6f77cc23f6a2212dcdc868308c52" },
+  "cmp-buffer": { "branch": "main", "commit": "b74fab3656eea9de20a9b8116afa3cfc4ec09657" },
+  "cmp-nvim-lsp": { "branch": "main", "commit": "a8912b88ce488f411177fc8aed358b04dc246d7b" },
+  "cmp-nvim-lua": { "branch": "main", "commit": "f12408bdb54c39c23e67cab726264c10db33ada8" },
+  "cmp-path": { "branch": "main", "commit": "c6635aae33a50d6010bf1aa756ac2398a2d54c32" },
+  "cmp_luasnip": { "branch": "master", "commit": "98d9cb5c2c38532bd9bdb481067b20fea8f32e90" },
+  "friendly-snippets": { "branch": "main", "commit": "572f5660cf05f8cd8834e096d7b4c921ba18e175" },
+  "lazy.nvim": { "branch": "main", "commit": "6c3bda4aca61a13a9c63f1c1d1b16b9d3be90d7a" },
+  "lspsaga.nvim": { "branch": "main", "commit": "920b1253e1a26732e53fac78412f6da7f674671d" },
+  "mason-lspconfig.nvim": { "branch": "main", "commit": "d39a75bbce4b8aad5d627191ea915179c77c100f" },
+  "mason.nvim": { "branch": "main", "commit": "888d6ee499d8089a3a4be4309d239d6be1c1e6c0" },
+  "nvim-cmp": { "branch": "main", "commit": "b5311ab3ed9c846b585c0c15b7559be131ec4be9" },
+  "nvim-lspconfig": { "branch": "master", "commit": "ac1dfbe3b60e5e23a2cff90e3bd6a3bc88031a57" },
+  "nvim-treesitter": { "branch": "master", "commit": "066fd6505377e3fd4aa219e61ce94c2b8bdb0b79" },
+  "playground": { "branch": "master", "commit": "ba48c6a62a280eefb7c85725b0915e021a1a0749" },
+  "plenary.nvim": { "branch": "master", "commit": "857c5ac632080dba10aae49dba902ce3abf91b35" },
+  "telescope.nvim": { "branch": "master", "commit": "b4da76be54691e854d3e0e02c36b0245f945c2c7" },
+  "undotree": { "branch": "master", "commit": "b951b87b46c34356d44aa71886aecf9dd7f5788a" },
+  "vim-be-good": { "branch": "master", "commit": "0ae3de14eb8efc6effe7704b5e46495e91931cc5" },
+  "wilder.nvim": { "branch": "master", "commit": "679f348dc90d80ff9ba0e7c470c40a4d038dcecf" }
+}
+
+
+
+----- FILE: ./init.lua -----
+require("conf.lazy")
+require("conf.misc")
+require("conf.undotree")
+require("conf.mason")
+require("conf.completion")
+require("conf.comment")
+require("conf.wilder")
+
+
+

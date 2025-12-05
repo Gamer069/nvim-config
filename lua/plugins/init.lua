@@ -84,7 +84,8 @@ return {
 		branch = "main",
 		config = function()
 			require("lspsaga").setup({})
-			vim.keymap.set("n", "<S-F6>", "<cmd>Lspsaga rename<CR>", { silent = true })
+			-- F18 cos' for some reason my setup recognises Shift+F6 as F18...
+			vim.keymap.set("n", "<F18>", "<cmd>Lspsaga rename<CR>", { silent = true })
 		end,
 	},
 }

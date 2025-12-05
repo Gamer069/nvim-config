@@ -1,24 +1,25 @@
 -- Mason setup
 require("mason").setup()
 
--- Mason-LSPConfig setup (new shit)
+-- Mason-LSPConfig setup
 require("mason-lspconfig").setup({
-    ensure_installed = { "clangd" }, -- make sure clangd is installed
+    ensure_installed = { "clangd", "omnisharp_mono" }, -- add other servers if you want
     automatic_installation = true,
-    automatic_enable = true,
 })
 
--- Keymaps & attach logic
+local lspconfig = require("lspconfig")
+
+-- on_attach: keymaps for LSP features
 local on_attach = function(_, bufnr)
     local opts = { noremap = true, silent = true }
     local keymap = vim.api.nvim_buf_set_keymap
 
     keymap(bufnr, 'n', 'gd', '<cmd>lua vim.lsp.buf.definition()<CR>', opts)
-    keymap(bufnr, 'n', 'K', '<cmd>lua vim.lsp.buf.hover()<CR>', opts)
+    keymap(bufnr, 'n', 'K',  '<cmd>lua vim.lsp.buf.hover()<CR>', opts)
     keymap(bufnr, 'n', '<C-k>', '<cmd>lua vim.lsp.buf.signature_help()<CR>', opts)
 end
 
--- Default setup options
+-- Default options for servers
 local default_opts = {
     on_attach = on_attach,
     flags = {
@@ -26,8 +27,19 @@ local default_opts = {
     },
 }
 
--- Final LSP setup per server
-local lspconfig = require("lspconfig")
-for _, server in ipairs(require("mason-lspconfig").get_installed_servers()) do
-    lspconfig[server].setup(vim.tbl_deep_extend("force", {}, default_opts))
-end
+local omnisharp_path = vim.fn.stdpath("data") .. "/mason/packages/omnisharp-mono/omnisharp-mono"
+
+lspconfig.omnisharp.setup{
+    cmd = { omnisharp_path, "--languageserver", "--hostPID", tostring(vim.fn.getpid()), "--stdio" },
+    useModernNet = true,  -- critical: tells OmniSharp to use dotnet SDK
+    filetypes = { "cs", "csharp" },
+    root_dir = lspconfig.util.root_pattern("*.sln", "*.csproj", ".git"),
+    on_attach = function(client, bufnr)
+        local opts = { noremap=true, silent=true }
+        local keymap = vim.api.nvim_buf_set_keymap
+        keymap(bufnr, 'n', 'gd', '<cmd>lua vim.lsp.buf.definition()<CR>', opts)
+        keymap(bufnr, 'n', 'gr', '<cmd>lua vim.lsp.buf.references()<CR>', opts)
+        keymap(bufnr, 'n', 'K',  '<cmd>lua vim.lsp.buf.hover()<CR>', opts)
+    end,
+    flags = { debounce_text_changes = 150 },
+}
